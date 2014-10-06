@@ -1,0 +1,49 @@
+void prepare_com(uint8* data, uint8* dest_a, uint8 len)
+{   //广播的命令
+    uint16 length;
+    uint8  cs = 0; 
+    
+    uint8  index= 0;
+    
+    package[index++] = 0x7E;
+    //len
+    length= len+14;
+    package[index++] = (uint8_t)(length>>8);
+    package[index++] = (uint8_t)(length&0x00FF);
+    
+    package[index++] = 0x10;
+    package[index++] = 0x00;
+    //sink 64地址
+    //for(int i = 0;i<8;i++){
+    //        package[index++] = dma[i];
+    //}   
+    package[index++] = 0x00;
+    package[index++] = 0x00;
+    package[index++] = 0x00;
+    package[index++] = 0x00;
+    package[index++] = 0x00;
+    package[index++] = 0x00;
+    package[index++] = 0xFF;
+    package[index++] = 0xFF;
+    
+    //sink 16位地址
+    package[index++] = 0x00;
+    package[index++] = 0x00;
+    
+    //Radius，Options
+    package[index++] = 0x00;
+    package[index++] = 0x00;
+    
+    //app data
+    for(uint8 i = 0;i < len;i ++){
+      package[index++] = data[i];
+    }
+    //校验
+    for(uint8 i = 3;i < index;i ++){
+    cs += package[i];
+    }
+    cs = 0xFF - cs;
+    package[index++] = cs;
+    halUartXbeeWrite(package, index);
+   // halUartWrite(package, index);
+}

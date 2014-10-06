@@ -1,0 +1,39 @@
+__interrupt void USCI1RX_ISR (void)
+{
+  static uint16 len = 0;
+  static uint8 xbee[100];
+  static uint16 length;
+  
+  xbee[len] = UCA1RXBUF;
+  
+  if(len == 2)//第一二位为长度
+  {
+      length = (((uint16)xbee[1])<<8) + (uint16)xbee[2];
+  }
+  len++;
+  
+  //xbee数据只有这个长度，这时候应该截取有用的数据直接转发  
+  //如果数据处理有问题在这个开个队列
+  //cluster发送的数据，直接转发
+  if(len == length + 4)
+  {                     
+   //收到的命令包少了两个字节,数据直接发串口
+      halUartWrite("cluster_data:",13);
+      for(uint16 i = 15 ;i < length + 3 ;i ++ ){
+        while (!(IFG2 & UCA0TXIFG));
+        UCA0TXBUF = xbee[i]; 
+      }
+   /* uint8 xx[100];
+    for(uint16 i = 15 ;i < length +3 ;i ++ )
+    {
+        xx[i-15] = xbee[i];
+    }    
+     halUartWrite(xx,length + 3 -15);*/
+     len = 0;
+     length = 99;
+  } else if(len >= 100){
+      len = 0;
+      length = 99; 
+  }
+
+}

@@ -1,0 +1,125 @@
+//xbee发送函数，其中dma是接受发xbee的屋里地址，8字节
+void MeshUARTControl.send(uint8_t *msg, uint8_t* dma,uint8_t len){
+		uint16_t length;
+		int i;
+		uint8_t cs;
+		//fill the sp frame 
+		if(!bIsMain) return;
+		printfUART("MeshUARTControl send %d\n",(uint32_t)msg[3]);
+		
+
+		index= 0;
+		//start byte
+		SPFrame[index++] = 0x7E;
+		//len
+		length= len+14;
+		SPFrame[index++] = (uint8_t)(length>>8);
+		SPFrame[index++] = (uint8_t)(length&0x00FF);
+		
+		SPFrame[index++] = 0x10;
+		SPFrame[index++] = 0x00;
+		//DMA
+		i=0;
+		for(;i<8;i++){
+			SPFrame[index++] = dma[i];
+		}
+		SPFrame[index++] = 0xFF;
+		SPFrame[index++] = 0xFE;
+		SPFrame[index++] = 0x00;
+		SPFrame[index++] = 0x00;
+		//app data
+		for(i=0;i<len;i++){
+		   SPFrame[index++] = msg[i];
+	  }
+	  //cs
+	 cs=0;
+	  for(i=3;i<index;i++){
+	  	cs+=SPFrame[i];
+	  }
+	  cs = 0xFF-cs;
+		SPFrame[index++] = cs;
+		//send frame		
+		for(i=0;i<index;i++)
+		printfUART("%d ",(uint32_t)SPFrame[i]);  
+		printfUART("\n",(uint32_t)0);
+		call UART.send(SPFrame,index);
+		
+		//call Leds.redToggle();
+		
+	}
+
+
+void ServerUARTControl.send(uint8_t *msg,uint8_t* dma,uint8_t len){
+		uint16_t length;
+		uint8_t i;
+		uint8_t cs;
+		
+		if(!bIsMain) return;
+		index =0;
+		SPFrame[index++] = 0x7E;
+		length = len+9;
+		SPFrame[index++] = (uint8_t)(length>>8);
+		SPFrame[index++] = (uint8_t)(length&0x00FF);
+		SPFrame[index++] = 2;
+		for(i=0;i<8;i++){
+			SPFrame[index++] = dma[i];
+		}
+		for(i=0;i<len;i++){
+			 SPFrame[index++] = msg[i];
+		}
+		 //cs
+	  cs=0;
+	  for(i=3;i<index;i++){
+	  	cs+=SPFrame[i];
+	  }
+	  cs = 0xFF-cs;
+		SPFrame[index++] = cs;
+		//send frame
+	  for(i=0;i<index;i++)
+		  printfUART("%d ",(uint32_t)SPFrame[i]);  
+		printfUART("\n",(uint32_t)0);
+		call UART.send(SPFrame,index);
+		call Leds.greenToggle();
+		
+	}
+
+// 串口接收 这里用了两个buffer，我们用一个即可
+TOSH_SIGNAL(SIG_UART1_RECV) {
+    if (inp(UCSR1A) & (1 << RXC))
+      //signal UART.get(inp(UDR0));
+      {
+	     	current_buffer[data_index]=inp(UDR1);
+	     	if(data_index == 0)
+	     	{
+	     		if(current_buffer[data_index] == 0x7E)
+	     			data_index++;
+	     	}
+	     	else if(data_index == 1)
+	     	{	
+	     		data_index++;
+	     	}
+	     	else if(data_index == 2)
+	     	{
+	     		data_length = current_buffer[data_index];
+	     		data_index++;
+	     	}
+	     	else
+	     	{
+	     		if(data_index == (data_length + 3)) //receive finished
+	     		{
+	     					signal UART.receive(current_buffer);
+	     					buffer_index = (buffer_index + 1) & 0x01;//switch receive buffer
+								data_index = 0;
+								current_buffer = &receive_buffer[buffer_index][0];				
+	     		}
+	     		else if(data_index == 99)
+	     		{
+	     			data_index = 0;
+	     		}
+	     		else
+	     		{
+	     			data_index++;
+	     		}
+	     	}
+      }
+  }
